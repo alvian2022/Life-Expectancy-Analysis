@@ -1,0 +1,238 @@
+---
+title: "Life Expectancy Analysis"
+author: "Alvian Khairi"
+date: '2022-05-24'
+output: 
+  html_document:
+    theme: yeti
+    highlight: tango
+    df_print: paged
+    toc: true
+    toc_float: true
+    toc_depth: 2
+---
+
+```{r setup, include=FALSE}
+# clear-up the environment
+rm(list = ls())
+
+# chunk options
+knitr::opts_chunk$set(
+  message = FALSE,
+  warning = FALSE,
+  fig.align = "center"
+)
+
+options(scipen = 9999)
+```
+
+# **1 About This Dataset**
+
+The Global Health Observatory (GHO) data repository under World Health Organization (WHO) keeps track of the health status as well as many other related factors for all countries The datasets are made available to public for the purpose of health data analysis. The dataset related to life expectancy, health factors for 193 countries has been collected from the same WHO data repository website and its corresponding economic data was collected from United Nation website. Among all categories of health-related factors only those critical factors were chosen which are more representative. It has been observed that in the past 15 years , there has been a huge development in health sector resulting in improvement of human mortality rates especially in the developing nations in comparison to the past 30 years. Therefore, in this project we have considered data from year 2000-2015 for 193 countries for further analysis. The individual data files have been merged together into a single dataset. On initial visual inspection of the data showed some missing values. As the datasets were from WHO, we found no evident errors. Missing data was handled in R software by using Missmap command. The result indicated that most of the missing data was for population, Hepatitis B and GDP. The missing data were from less known countries like Vanuatu, Tonga, Togo,Cabo Verde etc. Finding all data for these countries was difficult and hence, it was decided that we exclude these countries from the final model dataset. The final merged file(final dataset) consists of 22 Columns and 2938 rows which meant 20 predicting variables. All predicting variables was then divided into several broad categories:​Immunization related factors, Mortality factors, Economical factors and Social factors.
+
+Source : Kaggle <https://www.kaggle.com/code/gauravks13/eda-life-expactancy>
+
+# **2 Read Data, Data Cleansing and Coercion**
+
+## 2.1 Read Data
+
+First, we will read the data and put it into a variable named life_expactancy
+
+```{r}
+life_expectancy <- read.csv("data_input/life_expectancy.csv")
+```
+
+## 2.2 Data Inspection
+
+```{r}
+head(life_expectancy)
+```
+
+```{r}
+tail(life_expectancy)
+```
+
+```{r}
+dim(life_expectancy)
+```
+
+well, the data has 2938 rows and 22 columns
+
+## 2.3 Data Cleansing & Coercion
+
+Check data type for each column
+
+```{r}
+library(dplyr)
+
+glimpse(life_expectancy)
+```
+
+Some of data type not in the corect type, we need to convert it into corect type (data coercion)
+
+```{r}
+life_expectancy <- life_expectancy %>% 
+  mutate(Status = as.factor(Status))
+
+
+glimpse(life_expectancy)
+            
+```
+
+**Each of column already changed into desired data type**
+
+next, we need to check for missing value
+
+```{r}
+anyNA(life_expectancy)
+```
+
+```{r}
+colSums(is.na(life_expectancy))
+```
+
+we found missing values in life expetancy data, we will remove rows of data that has missing value and put it into a variable named life_expactancy_clean.
+
+```{r}
+life_expectancy_clean <- na.omit(life_expectancy)
+
+```
+
+```{r}
+anyNA(life_expectancy_clean)
+```
+
+**Data has been clean!**
+
+# **3 Data Explanation**
+
+```{r}
+summary(life_expectancy_clean)
+```
+
+Summary
+
+-   average life expectancy: 69.3 years
+-   minimum life expectancy: 44 years
+-   lowest Gross Domestic Product per capita (gdp) is 1.68
+-   the status of developing countries amounted to 1407 countries
+-   the highest population size is 1.293.859.294
+
+**Check Outliers in life expectancy**
+
+```{r}
+lf <- aggregate(Life.expectancy~Country, life_expectancy_clean, mean)
+head(lf[order(lf$Life.expectancy, decreasing = T),])
+```
+
+```{r}
+lf1 <- aggregate(Life.expectancy~Country, life_expectancy_clean, var)
+head(lf1[order(lf1$Life.expectancy, decreasing = T),])
+
+```
+
+```{r}
+lf2 <- aggregate(Life.expectancy~Country, life_expectancy_clean, sd)
+head(lf2[order(lf2$Life.expectancy, decreasing = T),])
+
+```
+
+```{r}
+boxplot(life_expectancy_clean$Life.expectancy)
+```
+
+The value of the standard deviation is small enough, then the process will continue
+
+# **4 Data Manipulation & Transformation**
+
+1.  Which 10 countries have the highest average life expectancy?
+
+```{r}
+top10 <- life_expectancy %>% 
+  group_by(Country) %>% 
+  summarise(Average.Life.Expectancy = mean(Life.expectancy)) %>% 
+  ungroup() 
+
+head(top10 %>%  arrange(desc(Average.Life.Expectancy)), 10)
+```
+
+2.  How does life expectancy move each year?
+
+```{r}
+library(ggplot2)
+library(plotly)
+
+leByYear <- life_expectancy_clean %>% 
+  group_by(Year) %>% 
+  summarise(Average = mean(Life.expectancy)) %>% 
+  ungroup()
+
+ggplotly(ggplot(data = leByYear, aes(x = Year, y = Average))+
+  geom_line())
+```
+
+**from 2001 to 2003 life expectancy fell drastically, and from 2003 to 2015 life expectancy continued to increase**
+
+3.  How does GDP affect life expectancy?
+
+```{r}
+cor(life_expectancy_clean$Life.expectancy, life_expectancy_clean$GDP)
+```
+
+```{r}
+ggplotly((ggplot(data = life_expectancy_clean, aes(x = GDP, y = Life.expectancy)))+
+   geom_point(shape=18, color="blue")+
+        geom_smooth(method=lm, linetype="dashed",color="darkred", fill="blue")+
+        labs(title = "Scotter Plot Relationship between GDP and Life Expectancy")+
+        theme_light())
+```
+
+**Gdp is positively correlated with life expectancy but not significant**
+
+4.  How does GDP affect life expectancy?
+
+```{r}
+cor(life_expectancy_clean$Life.expectancy, life_expectancy_clean$Schooling)
+```
+
+```{r}
+ggplotly((ggplot(data = life_expectancy_clean, aes(x = Schooling, y = Life.expectancy)))+
+   geom_point(shape=18, color="blue")+
+        geom_smooth(method=lm, linetype="dashed",color="darkred", fill="blue")+
+        labs(title = "Scotter Plot Relationship between Schooling and Life Expectancy")+
+        theme_light())
+```
+
+**schooling is positively correlated with life expectancy, the longer the school time, the higher the life expectancy**
+
+5.  which 5 countries have the highest adult mortality?
+
+```{r}
+top5am <- life_expectancy %>% 
+  group_by(Country) %>% 
+  summarise(Sum.of.Adult.Mortality = sum(Adult.Mortality)) %>% 
+  ungroup()
+
+head(top5am %>%  arrange(desc(Sum.of.Adult.Mortality)), 5)
+
+```
+
+6.  What variables are strongly correlated with life expectancy?
+
+```{r}
+library(GGally)
+
+ggcorr(life_expectancy_clean, label = T, size =3)
+```
+
+**The variables that are strongly correlated with life expectancy are Schooling, Income Composition and Diphtheria**
+
+# **Conclusion**
+
+-   Japan is the country with the highest life expectancy
+-   The country with the highest adult mortality is Lesotho with 8801 deaths
+-   Gdp is positively correlated with life expectancy but not significant
+-   From 2001 to 2003 life expectancy fell drastically, and from 2003 to 2015 life expectancy continued to increase
+-   schooling is positively correlated with life expectancy,
+-   the longer the school time, the higher the life expectancy
+-   The variables that are strongly correlated with life expectancy are Schooling, Income Composition and Diphtheria

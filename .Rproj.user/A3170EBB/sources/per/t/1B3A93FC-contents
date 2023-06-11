@@ -1,0 +1,297 @@
+---
+title: "Dive Deeper Regression Model"
+author: "Tria Rahmat Mauludin"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  html_document:
+    theme: yeti
+    highlight: tango
+    df_print: paged
+    toc: true
+    toc_float: true
+    toc_depth: 2
+---
+
+```{r setup, include=FALSE}
+# clear-up the environment
+rm(list = ls())
+
+# chunk options
+knitr::opts_chunk$set(
+  message = FALSE,
+  warning = FALSE,
+  fig.align = "center",
+  comment = "#>"
+)
+```
+
+# Import Library
+
+```{r, warning = F, message = F}
+library(dplyr) # Data Cleansing
+library(ggplot2) # Visualisasi
+library(GGally) # Visualisasi (korelasi)
+library(MLmetrics) # Metrics Error
+library(performance) # Compare performance
+library(lmtest) # Uji Asumsi
+library(car) # Uji Asumsi
+```
+
+Setelah memahami konsep terkait model regresi serta penggunaannya di R maka kita perlu memahami juga bagaimana alur kerja/workflow ketika kita ingin menyelesaikan suatu masalah dengan model regresi.
+
+# Workflow
+
+1. Load Libraries
+
+2. Business Problem
+
+    - Tentukan masalah yang akan diselesaikan dan data yang akan digunakan
+
+3. Read Data
+
+4. Data Cleansing
+
+    - Cek NA, tipe data
+
+5. Exploratory Data Analysis (EDA)
+
+    - Cek outliers
+    
+    - Perhatikan korelasi/hubungan antar variabel. Korelasi yang kuat dengan variabel target menunjukkan variabel tersebut berpotensi menjadi prediktor.
+
+6. Model Fitting
+
+    - Pemilihan prediktor dapat dipilih berdasarkan segi bisnis ataupun dilihat dari segi statistika (signifikansi, korelasi, step-wise regression).
+    
+    - Jika memungkinkan, buatlah model sesederhana mungkin (prediktor sesedikit mungkin) karena dengan semakin banyak prediktor maka kita perlu mengumpulkan lebih banyak informasi di lapangan untuk melakukan prediksi. 
+
+7. Model Evaluation
+
+    - Melihat seberapa baik model menjelaskan variansi target variable: R-squared (1 prediktor), Adj. R-Squared (>1 prediktor)
+    
+    - Melihat seberapa baik model dari error yang paling kecil: MAE, MAPE, RMSE
+
+8. Model Interpretation
+
+    - Koefisien, Signifikansi, R-Squared/Adj. R-Squared
+
+9. Model Assumption
+
+    - Periksa asumsi cukup pada model yang memiliki performa terbaik
+
+10. Prediction on Unseen Data (+ Model Performance on Train and Test Data)
+
+    - Lakukan prediksi pada data yang belum pernah dilihat oleh model (Test Data)
+    
+# Dive Deeper
+
+Sebagai seorang karyawan pada perusahaan asuransi, Anda diminta untuk melakukan prediksi premi asuransi yang harus dibayarkan oleh seorang pelanggan yang akan melakukan pemilihan asuransi. 
+
+1. Silahkan import terlebih dahulu data `train_insurance.csv` 
+```{r}
+train_ins <- read.csv("data_input/train_insurance.csv")
+train_ins
+```
+
+Deskripsi variabel: 
+
+- `age`: usia/umur
+- `sex`: gender (male or female)  
+- `bmi`: body mass index  
+- `children`: jumlah anak  
+- `smoker`: perokok/bukan
+- `region`: wilayah tempat tinggal  
+- `charges`: cost medical (dolar)
+
+2. Lakukanlah Exploratory Data Analysis sebelum membuat pemodelan
+
+```{r}
+glimpse(train_ins)
+```
+```{r}
+unique(train_ins$region)
+```
+
+
+a. Periksalah struktur data `train_ins`
+
+```{r}
+plot(train_ins$charges)
+```
+
+b. Ubahlah tipe data yang belum sesuai
+
+```{r}
+train_ins <- train_ins %>% 
+  mutate(sex = as.factor(sex),
+         smoker = as.factor(smoker),
+         region = as.factor(region))
+```
+
+c. Periksalah apakah terdapat missing value pada dataset
+
+```{r}
+
+anyNA(train_ins)
+
+```
+
+d. Sebelum melakukan analisis regresi, periksalah korelasi antara variabel **target** yaitu `charges` dan **prediktor*
+
+```{r}
+ggcorr(train_ins, label=T)
+```
+
+Berdasarkan output korelasi diatas, kesimpulan apa yang dapat diperoleh?
+
+>semua variable prediktor berkorelasi sangat lemah dengan variable target
+
+
+3. Buatlah sebuah model 
+
+a. Membuat model dengan semua prediktor
+
+```{r}
+model_all <- lm(charges~., train_ins)
+summary(model_all)
+```
+
+b. Menggunakan stepwise regression dengan direction backward untuk mengetahui variabel apa saja yang signifikan berpengaruh terhadap `charges`
+
+```{r}
+backward_model <- step(model_all, trace = 0)
+summary(backward_model)
+
+```
+
+c. Periksa performa kedua model di atas, manakah model yang memiliki performa paling baik?
+
+```{r}
+compare_performance(model_all, backward_model)
+compare_performance(backward_model, model_all)
+```
+
+> backward_model
+
+4. Lakukan interpretasi untuk model yang memiliki performa paling baik!
+
+```{r}
+summary(backward_model)
+summary(model_all)
+```
+
+> 
+
+5. Lakukanlah uji asumsi untuk model yang dibuat (pilih salah satu model yang memiliki performance yang baik)
+
+a. Linearity
+
+Uji asumsi untuk linearity dengan `cor.test()`
+
+H0 : Tidak Linear
+
+H1 : Linear
+
+```{r}
+
+```
+
+b. Normality of Residual
+
+Uji Statistik dengan `shapiro.test()`
+
+H0: residual berdistribusi normal
+
+H1: residual tidak berdistribusi normal
+
+
+```{r}
+
+```
+
+c. Homoscedasticity
+
+H0: model homoscedasticity
+
+H1: model heteroscedasticity
+
+```{r}
+
+```
+
+d. No Multicollinearity
+
+* Uji No Multicollinearity dengan `vif()`. Periksalah apakah terdapat variabel yang memiliki nilai VIF > 10
+
+```{r}
+
+```
+
+Berdasarkan uji asumsi di atas, asumsi apa yang dilanggar?
+
+>
+
+6. Berdasarkan model linear regression yang sudah dibuat, prediksilah data test yang ada menggunakan model terbaik yang telah dibuat
+
+a. Import data `test_insurance.csv` dan lakukan data wrangling seperti yang dilakukan pada data train
+
+```{r}
+test <- read.csv("data_input/test_insurance.csv", stringsAsFactors = T)
+test
+```
+
+```{r}
+# Data wrangling untuk data test (lakukan sama seperti data train)
+
+```
+
+
+b. Prediksi data test menggunakan model yang telah dibuat
+
+```{r}
+
+```
+
+c. Periksa error (MAPE) dari hasil prediksi data test
+
+```{r}
+
+```
+
+7. Kesimpulan
+
+>
+
+# Extra Challenges [Optional]
+
+Karena model yang telah kita buat masih belum baik untuk memprediksi nilai `charges` dan ada asumsi yang dilanggar, mari kita coba lakukan beberapa transformasi data pada variabel `charges`.
+
+```{r}
+
+# log tranformation
+
+
+# sqrt transformation
+
+```
+
+Lakukan pemodelan untuk kedua data tersebut
+
+```{r}
+
+```
+
+Setelah memperoleh model, bandingkan performa keduanya! Transformasi manakah yang menghasilkan performa paling baik?
+
+```{r}
+
+```
+
+Lakukan pula prediksi pada data `test` lalu lihat apakah performanya meningkat jika dibandingkan dengan data yang tidak ditransformasi?
+
+**Note: Jangan lupa lakukan transformasi variabel targetnya**
+
+```{r}
+
+```
+

@@ -1,0 +1,1573 @@
+---
+title: 'Classification 1 : In-class materials'
+author: "Victor Nugraha"
+date: "`r format(Sys.Date(), '%B %e, %Y')`"
+output:
+  html_document:
+    theme: cosmo
+    highlight: tango
+    toc: true
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+# clear-up the environment
+rm(list = ls())
+
+# chunk options
+knitr::opts_chunk$set(
+  message = FALSE,
+  warning = FALSE,
+  fig.align = "center"
+)
+
+options(scipen = 9999)
+```
+
+# Training Objectives
+
+Mempelajari dan mengembangkan algoritma **klasifikasi** dari awal, dan menyelidiki dasar matematika yang mendukung **logistic regression** dan algoritma **nearest neighbors**, dua algoritma paling serbaguna yang banyak digunakan saat ini.
+
+- Logistic Regression
+  + Memahami Peluang (Odds & Probability)
+  + Log Peluang (Log of Odds)
+  + Fungsi `glm`
+
+- Prediksi Tetangga Terdekat 
+  + K-NN (K-Nearest Neighbors)
+  
+<center>
+```{r, echo=FALSE}
+knitr::include_graphics("img/mindmapc1.png")
+```
+</center>
+
+# Classification 1
+
+Dalam Machine Learning dan statistik, **Classification** / klasifikasi adalah bentuk *pendekatan Supervised Learning* untuk memprediksi **label** dari suatu data dengan tipe **kategorikal**.
+
+## Linear Regression vs Logistic Regression
+
+<center>
+```{r, echo=FALSE}
+knitr::include_graphics("img/download.png")
+```
+</center>
+
+Ide dari logistic regression mulanya berangkat dari model linear regression. Bedanya:  
+
+- **Linear regression:** digunakan untuk memprediksi angka kontinyu  dengan range `-Inf to Inf`   
+- **Logistic regression:** digunakan untuk memprediksi probability dengan range: `0 to 1`  
+
+## Basic Intuition Classification
+
+### Probability (Kemungkinan)
+
+Pada dasarnya, ketika kita melakukan klasifikasi, kita menghitung **probabilitas**. 
+
+$$P(yes) = \frac{n(yes)}{n(yes) + n(no)}$$
+
+Dimana:
+
+- `P` = Probabilitas 
+- `n` = Jumlah kejadian
+
+Kindly Reminder: Range dari Probability: 0 - 1
+
+*Case study:*
+
+Saat H-2 Lebaran, terdapat 100 penerbangan di Soekarno-Hatta airport, dari 100 penerbangan tersebut, terdapat 20 penerbangan delay. 
+
+Diketahui:
+
+- Penerbangan delay: 20 penerbangan
+- Penerbangan tidak delay: 80 penerbangan
+
+- Berapakah probability suatu penerbangan delay di Soekarno-Hatta? 
+
+```{r}
+# Please type your answer 
+
+p_delay <- 20 / 100
+p_delay
+```
+
+- Berapakah probability suatu penerbangan tidak delay di Soekarno-Hatta? 
+
+```{r}
+# Please type your answer 
+
+p_no_delay <- 80 / 100
+p_no_delay
+```
+
+### Odds
+
+Odds merupakan bentuk lain dari probabilitas, yaitu perbandingan antara **probabilitas kejadian terjadi/probabilitas kejadian tidak terjadi**.  
+
+$$Odds(yes) = \frac{P(yes)}{1-P(yes)}$$
+
+Dimana:
+
+- `P` = Probabilitas 
+
+*Case study:*
+
+Saat H-2 Lebaran, terdapat 100 penerbangan di Soekarno-Hatta airport, dari 100 penerbangan tersebut, terdapat 20 penerbangan delay. 
+
+- Berapakah odds penerbangan terbang tepat waktu?
+
+```{r}
+# Odds tepat waktu dibandingkan dengan peluang delay
+p_no_delay/(1 - p_no_delay)
+```
+
+```{r}
+0.8 / (1 - 0.8)
+```
+
+> Interpretasi: Odds penerbangan tepat waktu itu 4 KALI lebih mungkin dibandingkan penerbangan tidak tepat waktu (delay).
+
+Range dari Odds: 0 - Inf
+
+### Log of Odds
+
+Log of odds adalah nilai odds yang dilogaritmikan 
+
+$$LogOfOdds = log(\frac{P}{1-P})$$
+
+*Case Study*
+
+Disini kita sudah mengetahu bahwa Odds dari penerbangan tepat waktu adalah 4 kali lebih mungkin dari penerbangan tidak tepat waktu. 
+
+- Berapakah nilai Log of Odds penerbangan tepat waktu?
+
+```{r}
+# Please type your answer
+log(4)
+```
+
+Additional Notes: 
+
+- Disini kenapa kita mempelajari **Log of Odds** karena **Log of Odds** adalah hasil dari **Logistic Regression**. 
+- Nilai dari **Log of Odds** tidak dapat kita interpretasikan.
+
+Follow up question dari additional notes:
+> Lalu bagaimana ketika kita ingin mengubah nilai dari Log of Odds menjadi nilai odds agar bisa di-interpretasikan?
+
+Untuk mengubah **Log of Odds** -> **Odds**, kita dapat menfaatkan exponential. Di R, sudah tersedia sebuah fungsi bernama `exp()`. Mari kita coba untuk menggubank fungsi tersebut untuk mengembalikan nilai Oddsnya.
+
+```{r}
+# Please type your answer
+exp(1.386294)
+```
+
+Additional:
+
+- Ketika kita ingin mengubah nilai **Odds** -> **Probability**, kita bisa melakukan perhitungan manual dengan menggunakan rumus seperti di bawah ini.
+
+$$P = \frac{Odds}{1+Odds}$$
+
+```{r}
+# Please type your answer
+4 / (1+4)
+```
+
+### Logit & Inversere Logit
+
+Sebelumnya kita sudah belajar, bagaimana mengtransformasi nilai **Odds** menjadi **Log of Odds**. Sekarang kita akan mencoba mempelajari, bagaimana  mengtransformasi nilai **Probability** menjadi **Log of Odds**. Untuk melakukan transformasi tersebut, kita dapat memanfaatkan fungsi `logit()` dari `library(gtools)`.
+
+```{r}
+#install.packages("gtools")
+library(gtools)
+```
+
+*Case Study*
+
+- Kita ingin mengubah peluang tidak delay menjadi **Log of Odds**. Sebelumnya kita sudah menyimpang peluang tidak delay ke dalam object `p_no_delay`, mari kita coba ubah nilai probabilitynya dari object tersebut.
+
+```{r}
+# Please type your answer
+p_no_delay
+```
+
+```{r}
+logit(p_no_delay)
+```
+
+Follow up question:
+> Lalu bagaimana ketika kita ingin mengubah nilai dari Log of Odds menjadi nilai probability agar bisa di-interpretasikan?
+
+Untuk mengubah **Log of Odds** ke peluang dengan fungsi `inv.logit()`. 
+
+```{r}
+# Please type your answer
+inv.logit(1.386294)
+```
+
+*Fun Fact :D*
+Fungsi `inv.logit()` sering juga disebut **sigmoidal logistic function**.
+
+```{r}
+# sigmoid function
+curve(inv.logit(x), from = -10, to=10, 
+      xlab = "Log of Odds", 
+      ylab = "Probabolity")
+```
+
+### Cheatsheet Probability, Odds & Log of Odds
+
+```{r, out.width = "70%", echo = FALSE, fig.align = "center"}
+knitr::include_graphics("assets/prob to logofodds.png")
+```
+
+# Model Machine Learning - Logistic Regression
+
+## Case Study 1
+
+Anda adalah seorang Data Scientist di Universitas Algoritma. Anda ditugaskan untuk memprediksi status kelulusan siswa dengan honors (cumlaude).
+
+Workflow Case Study 1:
+
+1. Load Data
+2. EDA & Data Wrangling
+3. Build Model
+
+### Load Data
+
+
+```{r}
+# Please run the code down below
+library(dplyr)
+
+honors <- read.csv("data_input/sample.csv") %>% 
+  select(-femalexmath)
+
+head(honors)
+```
+
+Deskripsi variabel:
+
+* `female`: gender of student (1 for female, 0 for male)
+* `read`: score in reading test
+* `write`: score in writing test
+* `math`: score in math test
+* `hon`: status of graduating in honors (1 for honors, 0 for not honors)
+
+### Data Wrangling
+
+- Cek tipe data
+
+```{r}
+# Please run the code down below
+glimpse(honors)
+```
+
+Apakah ada tipe data yang belum tepat?
+
+- `female` -> factor
+- `hon` -> factor
+
+Mari kita ubah tipe data yang belum tepat, lalu simpan ke object dengan nama `honors_clean`.
+
+```{r}
+# Please type your answer
+honors_clean <- honors %>% 
+  mutate(female = as.factor(female),
+         hon = as.factor(hon))
+```
+
+```{r}
+glimpse(honors_clean)
+```
+
+### EDA
+
+- Check missing value
+
+```{r}
+# Please type your answer
+
+# Pak Ruli & Bu Wenie
+colSums(is.na(honors_clean))
+```
+
+```{r}
+# Pak Alvian
+anyNA(honors_clean)
+```
+
+- Melihat 5 number summary
+
+```{r}
+# Please type your answer
+summary(honors_clean)
+```
+
+Insight:
+
+- Meannya dari ketiga kolom `read`, `write` & `math` sama semua 52
+- Distribusi normal karena nilai mean dan meidannya cukup dekat
+- Banyak murid yang tidak mendapatkan honors
+- Jumlah laki-laki dan perempuan kurang lebih sama/seimbang
+
+### Build Model
+
+Untuk membuat model logistic regression bisa menggunakan fungsi `glm()`, terdapat 3 paramater yang kita gunakan yaitu
+
+- `formula` : tempat mendefinisikan target dan predictor (y/target ~ x/predictor)
+- `data` : data yang digunakan untuk membuat model
+- `family` : gunakan *binomial* bila ingin menggunakan logistic regression pada pemodelan ini 
+
+Syntax: `glm(formula = target ~ predictor, data = , family = binomial)`
+
+#### Model W/O Predictor
+
+Pertama kita akan mencoba untuk membuat sebuah model tanpa prediktor, lalu simpan ke sebuah objet bernama `model_wo_predictor`.
+
+Diketahui:
+
+- Target: `hon`
+- Prediktor: 1 -> artinya tidak ada predictor
+
+```{r}
+model_wo_predictor <- glm(formula = hon ~ 1, data = honors_clean, family = binomial)
+```
+
+Untuk melihat hasil dari model yang telah kita buat, kita dapat memanfaatkan fungsi `summary()`.
+
+```{r}
+summary(model_wo_predictor)
+```
+
+Jika kita lihat dari hasil model yang telah dibuat, kita mengetahui bahwa model tanpa prediktor memiliki intercept sebesar *-1.1255*
+
+Follow up question:
+> Dari mana nilai intercept/koefisien tersebut?
+
+```{r}
+# proportion
+table(honors$hon)
+```
+
+```{r}
+# peluang tidak mendapatkan honors
+p_0 <- 151/(151+49)
+p_0
+
+# log of odds
+logit(p_0)
+```
+
+```{r}
+# peluang mendapatkan honors
+p_1 <- 49/(49 +151)
+p_1
+
+# log of odds
+logit(p_1)
+```
+Y = B0 + B1.X1
+Y = -1.125 
+
+#### Model 1 Predictor
+
+*Case Study*
+
+- Buat model untuk memprediksi `honors` berdasarkan `math`
+
+Syntax: `glm(y ~ x1, data, family = binomial)`
+
+```{r}
+# Please type your answer
+model_1_predictor <- glm(hon ~ math, data = honors_clean, family = binomial)
+
+summary(model_1_predictor)
+```
+
+Informasi Coefficients dari `model_1_predictor`:
+
+- Intercept: -9.79394
+- math: 0.15634
+
+Interpretasi:
+
+```{r}
+# log of odds -> odds
+exp(0.15634)
+```
+
+> Setiap kenaikan 1 nilai pada math, maka odds seseorang mendapatkan honor naik sebesar 1.17 KALI.
+
+## Dive deeper - Case Study 1
+
+Buatlah model yang dapat memprediksi seseorang akan lulus dengan predikat honors berdasarkan `gender` dan `nilai math` nya, kemudian jawablah pertanyaan berikut:
+
+1. Interpretasi dari nilai estimate/ coefficient yang peroleh untuk setiap predictornya
+
+Hint: `glm(y ~ x1 + x2, data, family = binomial)`
+
+```{r}
+# Please type your answer
+
+# Pak Alvian
+model_dd <- glm(hon~female+math, data = honors_clean, family = binomial)
+
+summary(model_dd)
+```
+
+Coef. Female: 0.96531
+ ~ Dari hasil summary() -> yang menjadi coef. adalah untuk gender wanita.
+ ~ Kenapa cuma ada wanita karena ada 1 nilai dalam kolom tersebut yang ditambung di dalam nilai intercept, yaitu gender laki-laki
+ 
+```{r}
+exp(0.96531)
+```
+Pak Hadyan:
+
+> wanita 2,6 kali lebih mungkin mendapatkan gelar honor jika dibandingkan dengan gender laki-laki
+
+Coef. Math: 0.16422
+
+```{r}
+exp(0.16422)
+```
+
+> Setiap kenaikan 1 nilai pada math, maka odds seseorang mendapatkan honor naik sebesar 1.17 KALI.
+
+2. Wulan adalah seorang murid perempuan yang memperoleh nilai math sebesar 60, berapa probability Wulan mendapatkan honors?
+
+Y = B0 + B1.X1 + B2.X2
+
+```{r}
+# log of oods
+-10.80595 + (0.965311*1) + (0.16422*60)
+```
+
+```{r}
+inv.logit(0.012561)
+```
+
+3. Handoyo adalah seorang murid laki-laki yang memperoleh nilai math sebesar 70, berapa probability Handoyo mendapatkan honors?
+
+```{r}
+# log of odds
+-10.80595 + (0.965311*0) + (0.16422*70)
+```
+
+```{r}
+inv.logit(0.68945)
+```
+
+---End of Day1---
+
+## Model Selection
+
+### AIC
+
+AIC = Jumlah informasi yang hilang. Diinginkan AIC yang semakin kecil.
+
+```{r}
+model_wo_predictor$aic
+```
+
+```{r}
+model_wo_predictor$aic # wo/ predictor
+model_1_predictor$aic # w/ math
+model_dd$aic # w/ female + math
+```
+
+Nilai AIC tidak dimiliki oleh semua model -> biasanya untuk membandingkan antar model logistic regression. 
+Kalau mau membandingkan model secara lebih baik (bisa untuk semua model) gunakan error.
+
+### Null/Residual Deviance
+
+- **Null deviance**: Null deviance menunjukkan error ketika model tanpa prediktor
+- **Residual deviance**: residual deviance menunjukkan error ketika model dengan seluruh prediktor
+
+```{r}
+model_wo_predictor$null.deviance
+model_1_predictor$null.deviance
+model_dd$null.deviance
+```
+
+Notes: Semua model akan selalu membuat atau melakukan perhitungan model tanpa predictor.
+
+```{r}
+model_wo_predictor$deviance # wo/ predictor
+model_1_predictor$deviance # w/ math
+model_dd$deviance # w/ female + math
+```
+
+*Note*: Nilai deviance tidak bisa di interpretasikan secara langsung, nilai ini harus dibandingkan dengan model lainnya. 
+
+### Perfect Separation
+
+Untuk membahas *Perfect Separation*, mari kita coba buat sebuah model Logistic Regression yang menggunakan keseluruhan predictor.
+
+```{r}
+# Please type your answer
+model_all_predictor <- glm(formula = hon ~ ., data = honors_clean, family = binomial)
+
+summary(model_all_predictor)
+```
+
+Apakah ada yang janggal dari hasil summary model yang menggunakan keseluruhan predictor?
+
+Pak Husada & Alvian
+
+- write mempunyai slope yang tinggi/efeknya paling besar
+
+Mari kita coba analisis secara spesifik hal tersebut
+
+Pertama-tama kita akan mencoba untuk melihat proporsi antara kolom predictor yang disangka ada hal yang janggal dengan target variable.
+
+```{r}
+# Please type your answer
+table(honors_clean$hon, honors_clean$write)
+```
+
+```{r}
+table(honors_clean$hon, honors_clean$math)
+```
+
+```{r}
+table(honors_clean$hon, honors_clean$read)
+```
+
+Lalu kita coba buat visualisasinya
+
+```{r}
+# Please type your answer
+plot(honors_clean$hon, honors_clean$write)
+```
+
+Dari hasil analisis di atas, kita dapat menarik kesimpulan bahwa **Perfect Separation** adalah sebuah kondisi dimana ada 1 variabel yang dapat memisahkan kelas target secara sempurna. 
+
+Apa yang kita lakukan bila bertemu kondisi perfect separation:
+
+- Kita tidak perlu menggunakan/membuat machine learning. Bisa menggunakan kondisi ifelse saja
+- Disarankan untuk jangan menggunakan varibel tersebut sebagai prediktor.
+
+#### Assumption 
+
+Logistic Regression menganut 3 asumsi:
+
+- **Linearity of Predictor & Log of Odds**: cara interpretasi model mengacu pada asumsi ini (contoh: untuk variabel numerik, peningkatan 1 nilai akan meningkatkan log of odds)
+
+Handoyo adalah seorang murid laki-laki yang memperoleh nilai math sebesar 70, berapa probability Handoyo mendapatkan honors?
+
+Diketahui Nilai Slope:
+
+Intercept: -10.80595
+Gender: 0.965311
+Nilai Math: 0.16422
+
+Rumus: Y = B0 + B1.X1 + B2.X2
+
+```{r}
+# log of odds
+-10.80595 + (0.965311 * 0) + (0.16422 * 70)
+```
+
+```{r}
+inv.logit(0.68945)
+```
+
+- **Multicollinearity**: antar prediktor tidak saling berkorelasi terlalu kuat (hingga nilai 1 / -1) -> uji `vif()`
+
+```{r}
+library(car)
+vif(model_all_predictor)
+```
+
+Ketika ada 2 nilai/predicot yang nilai vif > 10. Maka kita hanya boleh memilih salah satunya saja.
+
+- **Independence of Observations**: antar observasi saling independen & tidak berasal dari pengukuran berulang (repeated measurement) 
+
+Contoh Untuk observasi saling independen: -> kita harus ambil data secara random sampling
+
+Target: Mencari apakah seseorang akan beli atau tidak?
+- Mas Anugrah; Beli, beliau tidak puas
+- Mas Ido: Tidak beli, karena ada pengaruh dari Mas Anugrah
+
+Contoh tidak bersal dari pengukuran berulang: -> Kita coba hilangkan data yang sebelumnya
+
+Mengukur tinggi badan sebuah buah:
+Hari 1 : 10 cm
+.
+.
+Hari 10 : 14 cm
+
+Asumsi logistic regression menuntut kita untuk memahami data secara mendalam dan memastikan data sudah siap dipakai untuk membuat model.
+
+## Case Study 2
+
+Buat model untuk memprediksi peluang customer akan gagal bayar pinjaman (loan default), untuk mengindikasikan apakah customer tersebut baik atau tidak untuk diberikan pinjaman.
+
+Workflow Case Study 2:
+
+1. Read Data + Data understanding
+2. Data Wrangling
+3. EDA
+4. Cross Validation -> *New*
+5. Build Model
+6. Predict -> *New*
+7. Evaluation -> *New*
+
+### Read Data
+
+```{r}
+loans <- read.csv("data_input/loan2017Q4.csv")
+head(loans)
+```
+
+Descriptions:
+
+- `initial_list_status`: Either `w` (whole) or `f` (fractional). This variable indicates if the loan was a whole loan or fractional loan. For background: Some institutional investors have a preference to purchase loans in their entirety to obtain legal and accounting treatment specific to their situation - with the added benefit of "instant funding" to borrowers  
+- `purpose`: Simplified from the original data; One of: `credit_card`, `debt_consolidation`, `home_improvement`, `major_purchase` and `small_business`  
+- `int_rate`: Interest rate in percentages  
+- `installment`: Monthly payment owed by the borrower  
+- `annual_inc`: Self-reported annual income provided by the borrower / co-borrowers during application  
+- `dti`: A ratio of the borrower's total monthly debt payments on his/her total obligations to the self-reported monthly income  
+- `verification_status`: is the reported income verified, not verified, or if the income source was verified  
+- `grade`: software-assigned loan grade  
+- `revol_bal`: total credit revolving balance (in the case of credit card, it refers to the portion of credit card spending that goes unpaid at the end of a billing cycle)  
+- `inq_last_12m`: number of credit inquiries in the last 12 months  
+- `delinq_2yrs`: number of 30+ days past-due incidences of delinquency in the borrower's credit file for the past 2 years  
+- `home_ownership`: one of `MORTGAGE`, `OWN` and `RENT`  
+- `not_paid`: 0 for fully-paid loans, 1 for charged-off, past-due / grace period or defaulted  
+- `log_inc`: log of `annual_inc`  
+- `verified`: 0 for "Not verified" under `verification_status`, 1 otherwise  
+- `grdCtoA`: 1 for a `grade` of A, B or C, 0 otherwise
+
+### Data Wrangling
+
+Target: not_paid (paid = 0, not_paid = 1)
+
+Adakah variabel yang tipe datanya belum sesuai?
+
+- `not_paid` -> factor
+- `verified` -> factor
+- `grade` -> factor
+- `home_ownership` -> factor
+- `purpose`-> factor
+- `initial_list_status` -> factor
+
+Adakah variabel di bawah ini ada yang dapat dibuang?
+
+- `grade` -> kita tidak akan menghilangkan nilai pada grade, karena niali tersebut lebih tepat. Nilai yang akan di takeout nilai `grdCtoA`
+- `log_inc` -> bisa dibuang karena merupakan nilai log dari annual inc
+- `verified_status` -> buang karena sudah ada di verified
+
+```{r}
+loans_clean <- loans %>%
+  mutate(not_paid = as.factor(not_paid),
+         verified = as.factor(verified),
+         grade = as.factor(grade),
+         home_ownership= as.factor(home_ownership),
+         purpose=as.factor(purpose),
+         initial_list_status=as.factor(initial_list_status))%>%
+  select(-c(verification_status,grdCtoA,log_inc))
+
+glimpse(loans_clean)
+```
+
+### Eksploratory Data Analysis
+
+- Check missing value
+
+```{r}
+# Please type your answer
+anyNA(loans_clean)
+```
+
+- Melihat 5 number summary
+
+```{r}
+# Please type your answer
+summary(loans_clean)
+```
+
+Insight:
+
+- Proporsi targernya (paid - not paid) sama jumlah. 
+
+- Cek class-imbalance *new*
+
+```{r}
+# Please type your answer
+prop.table(table(loans_clean$not_paid))
+```
+
+Apakah proporsi antara target variable seimbang? Seimbang
+
+Follow up question:
+> Kenapa kita harus mencari tahu apakah proporsi taretnya seimbang?
+
+Proporsi yang seimbang penting agar model dapat mempelajari karakteristik kelas positif maupun negatif secara seimbang, tidak belajar dari satu kelas saja. Hal ini mencegah model dari *hanya baik memprediksi 1 kelas saja*. 
+Note: Proporsi yang imbalance sebenarnya cukup subjektif dan tidak ada aturan bakunya. Akan tetapi ketika proporsinya targetnya *90%:10%* atau *95%:5%*, target variable tersebut akan dianggap tidak seimbang.
+
+Target Variable:
+1/Paid: 80%
+0/Not Paid: 20%
+
+Kalau datanya imbalance:
+
+- Tambah data real -> memerlukan waktu
+- Metode *downSampling* -> Membuang observasi dari kelas mayoritas, sehingga seimbang.
+Contoh:
+Paid: 800 observasi -> akan dicut/dihilangkan secara random -> 200 observasi
+Not Paid: 200 Observasi
+
+- Metode *upSampling* -> Duplikasi observasi dari kelas minoritas, sehingga seimbang.
+Contoh:
+Paid: 800 Observasi 
+Not Paid: 200 Observasi -> akan diduplicate secara random -> 800 observasi
+
+Materi tersebut akan dipelajari di C2
+
+Kenapa kita harus tau kelas dari target variable kita balance atau tidak?
+Memastikan bahwa nanti data yang dimasukan ke model kita, itu datanya memiliki proporsi target yang seimbang. Jadinya model Machine Learning kita tidak hanya belajar untuk salah satu target kelasnya saja.
+
+Contoh Proporsi Target Variable:
+Paid: 57%
+Not Paid: 43%
+Proporsi Balanced
+
+Contoh dari Instructor:
+Paid: 65%
+Not Paid: 35%
+Proporsi Balanced
+
+### Cross Validation *new*
+
+**Cross Validation** merupakan sebuah tahapan dimana kita akan membagi data menjadi 2 bagian yaitu **data train** dan **data test**. 
+
+- *Data train* akan digunakan untuk training model.
+- *Data test* akan digunakan untuk pengujian performa model. Model akan diuji untuk memprediksi data test. Hasil prediksi dan data aktual dari data test akan dibandingkan untuk validasi performa model.
+
+Tujuan dari cross validation adalah **untuk mengetahui seberapa baik model untuk memprediksi unseen data**.
+
+Contoh:
+
+- 100 soal
+- 80 soal saya pakai untuk belajar (data train) -> Dipilih secara random
+- 20 soal saya pakai untuk ujian (data test) -> Sisa dari soal yang sudah dipilih secara random dari data train
+
+Contoh Lainnya:
+
+- 10 Soal Latihan Matetmatika
+5+3
+1-1
+7+8
+9+9
+6+4
+8-2
+7+4
+1+4
+5-1
+7+10
+
+- Ulangan 5 soal -> untuk melihat pemahaman ataupun untuk nilai apakah murid bisa atau tidak
+5-3
+1+1
+7-6
+9+19
+6-8
+
+
+Untuk memilih secara random data yang akan dimasukan kedalam *Data Train*, kita akan memanfaatkan bantuan fungsi `set.seed()` dan `RNGkind()`.
+
+Intuisi:
+
+```{r}
+# Agar hasil yang dikeluarkan pada R versi 3.x sama dengan R versi 4.x
+RNGkind(sample.kind = "Rounding") 
+# set.seed digunakan untuk mengunci sifat random dari fungsi sample()
+set.seed(123)
+
+sample(x = c("Victor", "Anugrah", "Ido"), size = 2)
+```
+
+Follow up question:
+> Kenapa kita harus mengunci sifat random yang ada?
+
+- Agar kita akan selalu memiliki *Data train* dan *Data test* yang sama. 
+  + Jadinya pada saat proses pembelajaran, kita akan mendapatkan hasil yang sama.
+  + Ketika kita ingin melakukan adjustment/tunning pada model yang sudah ada, data yang akan dimasukan kembali ke model tersebut sama dengan model yang sebelumnya. Sehingga kita bisa melakukan komparasi yang apple to apple, terhadap kedua model tersebut.
+
+```{r}
+# Agar hasil yang dikeluarkan pada R versi 3.x sama dengan R versi 4.x
+RNGkind(sample.kind = "Rounding") 
+# set.seed digunakan untuk mengunci sifat random dari fungsi sample()
+set.seed(123)
+
+# index sampling
+index <- sample(x = nrow(loans_clean), # untuk menghitung jumlah dari observasi data kita
+                size = nrow(loans_clean)*0.8) # Untuk mengambil seberapa banyak proporsi data yang ingin kita ambil
+
+# splitting
+loans_train <- loans_clean[index, ]
+loans_test <- loans_clean[-index, ]
+```
+
+```{r}
+nrow(loans_train)
+```
+
+```{r}
+1556 *0.8
+```
+
+NOTE: Pembagian proporsi antara *Data Train* & *Data Test* tidak ada aturan bakunya, akan tetapi kebanyakan orang akan memberikan proporsi yang lebih banyak pada *Data Train*.
+
+### Build Model
+
+Buatlah model logistic regression untuk memprediksi status loan (not_paid). Silahkan menggunakan keseluruhan predictor yang ada pada data kita.
+
+```{r}
+# Please type your answer
+model_credit_risk <- glm(formula = not_paid ~ ., data = loans_train, family = binomial)
+```
+
+```{r}
+# summary model
+summary(model_credit_risk)
+```
+
+Additional Info:
+
+Dalam membuat sebuah model, kita dapat memilih predictor apa saja yang kiranya memiliki pengaruh yang tinggi terhadap target varialbe, kita bisa melakukan **Feature Selection** dengan menggunakan fungsi `step()`.
+
+```{r}
+model_step <- step(object = model_credit_risk,
+                   direction = "both",
+                   trace = F)
+```
+
+```{r}
+summary(model_step)
+```
+Interpretasi Model:
+
+- Variable yang meningkatkan peluang: Grade (kecuali grade G), installment, delinq_2yrs, home_ownership dan verified
+- Variable yang menurunkan peluang: annual inc dan grade G
+- Signifikansi Variable: installment dan grade (2 variable yang paling signifikan)
+
+---End Of Day 2---
+
+### Predict *New*
+
+Ketika kita sudah berhasil membuat model, kita akan mencoba melakukan prediksi terhadapat *data test* yang sudah kita persiapkan pada tahapan *cross validation*.
+
+Syntax: `predict(object model, newdata, type)`
+
+Terdapat parameter tambahan yang akan kita gunakan pada fungsi `predict()`, yaitu parameter `type`. Parameter `type` dapat kita isi dengan:
+
+- `link`: menghasilkan log of odds
+- `response`: menghasilkan probability
+
+Contoh prediksi dengan menggunakan `type = link`, untuk 5 data teratas
+
+```{r}
+# Please type your answer
+predict(object = model_step, 
+        newdata = loans_test[1:5,], 
+        type = "link")
+```
+
+Contoh prediksi dengan menggunakan `type = response`, untuk 5 data teratas
+
+```{r}
+# Please type your answer
+predict(object = model_step, 
+        newdata = loans_test[1:5,], 
+        type = "response")
+```
+
+Addtional:
+
+Pembuktian apakah betul hasil dari response adalah probability dari log of odds
+
+```{r}
+predict(object = model_step, 
+        newdata = loans_test[1:5,], 
+        type = "link") %>% 
+  inv.logit()
+```
+
+Pembuktian apakah betul hasil dari link adalah log if odds dari probability
+
+```{r}
+predict(object = model_step, 
+        newdata = loans_test[1:5,], 
+        type = "response") %>% 
+  logit()
+```
+
+#### Dive deeper - Predict
+
+Lakukan prediksi probability `not_paid` pada data `loan_test`, lalu disimpan pada kolom baru bernama `prediction` di object `loan_test`.
+
+```{r}
+# Please type your answer
+loans_test$prediction <- predict(object = model_step, # nama/object model yang ingin kita gunakan
+                                 newdata = loans_test, # data test
+                                 type = "response") # memilih hasil prediksinya 
+```
+
+```{r}
+head(loans_test)
+```
+
+#### Transformasi hasil predict
+
+Setelah mendapatkan hasil prediksi yang masih bernilai probability, kita harus mengubah niali tersebut menjadi sebuah label yang sesuai dengan label pada target variable. Dalam kasus ini kita akan menggubah *nilai probability* menjadi *1* atau *0*.
+
+Penentuan label yang menjadi angka 1 pada **model logistic regression** adalah berdasarkan levels.
+
+```{r}
+model_wo_predictor
+```
+```{r}
+unique(honors_clean$hon)
+```
+
+```{r}
+unique(loans_test$not_paid)
+```
+0-> basis level
+1-> level yang paling tinggi
+
+```{r}
+loans_test
+```
+
+Notes:
+
+~ Semakin tinggi hasil dari prediksinya atau mendekati 1, maka hasil prediksi tersebut akan diperuntuhkan untuk kelas yang paling tinggi.
+
+~ Semakin rendah hasil dari prediksinya atau mendekati 0, makan hasil prediks tersebut akan diperuntuhkan untuk kelas yang lebih rendah.
+
+- Kelas *1* atau *0*.
+  + basis = 0 (level pertama, biasanya berdasarkan abjad/level factor), 
+  + probability mendekati 0 -> *0*
+  + probability mendekati 1 -> *1*
+  
+Urutan basis level pada R:
+
+~ Jika bentuk categoricalnya adalah numerik 0 dan 1: 0 < 1 < 2 < 3
+~ Jika bentuk categoricalnya adalah hufuf a, b, c: mengurutkannya berdasarkan abjad.
+
+Untuk melakukan transformasi kita akan memanfaatkan fungsi `ifelse()`, fungsi tersebut dapat membantu kita untuk membuat fungsi logic if-else sederhana.
+
+Syntax: `ifelse(test = , yes = , no =)`
+
+- `test`: kondisi yang ditentukan
+- `yes`: hasil yang di-inginkan jika kondisinya terpenuhi
+- `no`:hasil yang di-inginkan jika kondisinya tidak terpenuhi
+
+Kondisi penentu ketika kita ingin mentranformasikan hasil prediksi kita ke sebuah kelas, kondisi itu sering disebuh dengan *Threshold*. 
+
+Threshold awal yang bisa gunakan adalah *0.5*.
+
+~ Ketika hasil prediksi probability > 0.5 -> 1/gagal bayar
+~ Ketika hasil prediksi probability <=0.5 -> 0/berhasil bayar
+
+```{r}
+# Please type your answer
+loans_test$pred_label <- ifelse(test = loans_test$prediction > 0.5,
+                                yes = "1",
+                                no = "0")
+
+loans_test
+```
+
+### Model Evaluation *New*
+
+Setelah dilakukan prediksi menggunakan model, masih ada saja prediksi yang salah. Pada klasifikasi, kita mengevaluasi model berdasarkan **confusion matrix**:
+
+- Penentuan kelas:
+  + kelas positif: kelas yang lebih difokuskan 
+  + kelas negatif: kelas yang tidak difokuskan
+ 
+- Contoh kasus: 
+  + Machine learning untuk deteksi pasien covid:
+    * kelas positif: terdeteksi covid -> karena kalo orang kena covid bisa berjalan bebas, orang tersebut bisa menularkan kepada orang lain
+    * kelas negatif: terdeteksi sehat
+    
+  + Mahcine learning untuk deteksi apakah seseorang bisa bayar pinjaman atau tidak
+    * kelas positf: yang tidak bisa bayar -> karena apa biar gk rugi
+    * kelas negatif: yang bisa bayar
+
+- Isi dari Confusion Matrix:
+
+  * true positive (TP): diprediksi positif dan benar (prediksi positif; aktual positif)
+    + Aktualnya: gagal bayar
+    + Prediksinya: gagal bayar
+  * true negative (TN): diprediksi negatif dan benar (prediksi negatif; aktual negatif) 
+    + Aktualnya: bisa bayar
+    + Prediksinya: bisa bayar
+  * false positive (FP): diprediksi positif namun salah (prediksi positif; aktual negatif)
+    + Aktualnya: bisa bayar
+    + prediksinya: gagal bayar
+  * false negative (FN): diprediksi negatif namun salah (prediksi negatif; aktual positif)
+    + Aktualny: gagal bayar
+    + Prediksi: bisa bayar
+
+```{r, out.width = "40%", echo = FALSE, fig.align = "center"}
+knitr::include_graphics("img/tnfp.PNG")
+```
+
+Untuk melakukan perhitungan confusion matrix kita akan menggunakan fungsi `confusionMatrix()` dari `library(caret)`. Pada fungsi tersebut terdapat 3 parameter yang dapat kita manfaatkan, yaitu:
+
+- `data` = Data atau kolom hasil prediksi yang sudah ditransformasi menjadi label.
+- `reference` = Data atau kolom yang berisikan data real
+- `positive` = target apa yang ingin dijadikan positif value atau target apa yang kita petingkan.
+
+```{r}
+loans_test$pred_label <- as.factor(loans_test$pred_label)
+```
+
+```{r}
+str(loans_test$pred_label)
+```
+
+```{r}
+# confusion matrix
+library(caret)
+confusionMatrix(data = loans_test$pred_label,
+                reference = loans_test$not_paid,
+                positive = "1")
+```
+
+TP: 96
+TN: 90
+FP: 69
+FN: 57
+
+4 metrics performa model: Accuracy, Sensitivity/Recall, Precision, Specificity 
+
+#### Accuracy
+
+Seberapa banyak yang benar diprediksi dari keseluruhan data (positif maupun negatif).
+
+`TP+TN/TOTAL`
+
+```{r}
+# total data: nrow(loans.test)
+(96 + 90) / nrow(loans_test)
+```
+
+Note: tidak ada batasan mutlak berapa akurasi yang dianggap akurat (sudah baik), dikembalikan ke kebutuhan bisnis masing-masing. 
+
+Digunakan ketika:
+
+- Kelas target sama penting:
+  + Mau memprediksi apakah customer masuk ke kelompok customer tertentu, dengan kasusnya kita punya strategi marketing untuk tiap kelompok.
+- Data balance -> Taret variable ->  `prob.table(table())`
+
+Ada kondisi ketika **accuracy bukanlah metrics terpenting**. Umumnya ketika:
+
+- Kita mementingkan salah satu kelas (misal, kelas target/positif)
+- Data kita imbalance
+
+Slide link: https://docs.google.com/presentation/d/1Mvyl9BDUhnjuWjv3c2_JGiRBksq-MvfZa_7MjNpmjtY/edit#slide=id.g12b052d7607_0_136
+
+Saat kita mementingkan kelas tertentu, maka kita dapat memilih antara menggunakan metrics Recall / Precision: 
+
+#### Sensitivity/Recall
+
+Seberapa banyak yang **benar diprediksi positif**, dari yang **re**ality-nya (aktualnya) positif.
+
+`TP/(TP+FN)`
+
+```{r}
+96 / (96 + 57)
+```
+
+#### Precision/Pos Pred Value
+
+Seberapa banyak yang **benar diprediksi positif**, dari yang di**pre**diksi positif. 
+
+`TP/(TP+FP)`
+
+```{r}
+96 / (96 + 69)
+```
+
+Untuk memahaminya mari berdiskusi:
+
+#### Diskusi
+
+ROLE PLAY:
+x
+1. Seorang dokter ingin mendiagnosa pasien kanker menggunakan model machine learning. Pasien yang kanker akan diarahkan untuk pemeriksaan lanjutan. Untuk melihat kebaikan model, metrics mana yang lebih kita utamakan? 
+
+Step:
+1. Menentukan kelas positif:
+
+  - 1 : kanker
+  - 0 : sehat
+  
+2. Resiko salah prediksi
+
+  - actual kanker -> diprediksi sehat (FN) 
+  - actual sehat -> diprediksi kanker (FP)
+  
+3. Fokus ke FN, karena bahaya ketika ada pasien yang diprediksi sehat realitanya kanker
+
+4. Metrics = **Recall**
+
+2. Kita ingin membuat model prediksi untuk mengklasifikasikan e-mail spam/ham. Metrics mana yang lebih kita utamakan?
+  
+Step:
+1. Menentukan kelas positif:
+
+  - 1 : spam
+  - 0 : ham
+2. Resiko salah prediksi
+
+  - actual spam -> diprediksi ham (FN) 
+  - actual ham -> diprediksi spam (FP)
+  
+3. Fokus ke FP, karena kita ingin meminimalisir email-email penting masuk ke spam (yang nantinya tidak kita baca)
+
+4. Metrics = **Precision**
+
+Additional Task: AKan dibahas besok pada saat QnA
+
+3. Bila ada seorang **seller** dan **bos**nya yang hendak menawarkan produk perusahaan ke 1000 calon pelanggan. Ingin dibuat model prediksi dimana positive = pelanggan membeli produk. Maka siapa yang mementingkan recall, siapa yang mementingkan precision, dan mengapa?
+
+* Bos: ...
+* Telemarketer: ...
+
+#### Specificity
+
+Seberapa banyak yang **tepat diprediksi negatif**, dari yang **reality-nya negatif**. Jarang dipakai karena kita tidak sering fokus pada kelas negatif.
+
+`TN/(TN+FP)`
+
+```{r}
+90 / (90 + 69)
+```
+
+### Prediction Tunning - Additional
+
+Apakah kita lebih mementingkan Precission atau Recall dalam kasus kita? Loan Prediction?
+
+Positive Classnya: Gagal Bayar / 1
+
+~ Geser Threshold mendekati 0/berhasil bayar -> meningkatkan nilai Recall
+  + FN -> sekecil mungking
+  + FP -> Akan semakin besar
+  
+  probnya > 0.5 -> 1
+  probnya > 0.4 -> 1
+
+~ Geser Threshold mendekati 1/gagal bayar -> meningkatkan nilai Precssion
+  + FN -> Sebesar mungkin
+  + FP -> akan semakin kecil
+
+Dalam kasus ini kita lebih mementingkan nilai recallnya.
+
+```{r}
+loans_test$pred_label_tuning <- ifelse(test = loans_test$prediction > 0.4,
+                                       yes = "1",
+                                       no = "0")
+
+head(loans_test)
+```
+
+- Recall Sebelum Tunning: 0.627451
+- FN Sebelum Tunnging: 57
+
+- Recall Sesudah Tunning: 0.8562 
+- FN Sesudah Tunnging: 22
+
+```{r}
+confusionMatrix(data = as.factor(loans_test$pred_label_tuning), # hasil labeling prediksi kita
+                reference = loans_test$not_paid, # data aktual kita
+                positive = "1")
+```
+
+Interpretasi:
+
+Kalo dari prediksi sebelumnya dimana thresholdny adalah 0.5, nilai recall itu adlaah 62%. Setelah kita coba melakukan tunnign dengan menurunkan nilai threshold menjadi 0.4 dan nilai recallnya menjadi 85%. Maka model yang kita buat itu bisa dibilang sudah cukup baik/teliti dalam mengkategorikan untuk orang-orang yang gagal bayar.
+
+Pak Rizky:
+dalam kasus ini lebih baik labeling-nya > 0.4 daripada 0.5 ya? dengan tujuan mengetatkan observasi yang gagal bayar
+
+---End of Day3---
+
+# Model Machine Learning - K-NN
+
+k-NN adalah *K-nearest neighboor*. Metode ini akan mengkasifikasi data baru dengan membandingkan karakteristik data baru (data test) dengan data yang ada (data train). Kedekatan karakteristik tersebut diukur dengan **Euclidean Distance** hingga didapatkan **jarak**. Kemudian akan dipilih **k** tetangga terdekat dari data baru tersebut, kemudian ditentukan kelasnya menggunakan majority voting.
+
+Slide link: https://docs.google.com/presentation/d/1Mvyl9BDUhnjuWjv3c2_JGiRBksq-MvfZa_7MjNpmjtY/edit#slide=id.g12b052d7607_0_210
+
+## Picking Optimum k
+
+- Jangan terlalu besar: pemilihan kelas hanya berdasarkan kelas yang dominan dan mengabaikan pola kecil yang ternyata penting. 
+- Jangan terlalu kecil: rentan mengklasifikasikan data baru ke kelas outlier
+  ~ Outlier disini adalah model kita nantinya tidak bisa menangkap pola secara general 
+- **k optimum** adalah akar dari jumlah data kita: `sqrt(nrow(data))`
+  ~ Rumus untuk membantu intuisi heuristik. Dimana heuristik itu merupakan petunjuk praktis yang dapat membantu kita dalam mendapatkan sebuah intusi.
+    + Nanti kita bisa menaikan atau pun menurunkan nilai K (tidak ada aturan bakunya dalam menaikan atau menurunkan K)
+
+Contoh kasus: 
+(honors not-honors) -> kelas target = 2 
+(low medium high) -> kelas target = 3 
+
+- untuk menghindari seri ketika majority voting:
+  + k harus ganjil bila jumlah kelas target genap
+    ~ (honors / not-honors) -> kelas target = 2 
+  + k harus genap bila jumlah kelas target ganjil 
+    ~ (low / medium / high) -> kelas target = 3 
+- bila hasil majority voting seri, maka kelas akan dipilih secara random.
+  + Honors: 6 dan Not Honors: 6 -> Model KNN -> Secara Honors atau Not Honors
+  
+Jumlah Row: 
+
+- Ganjil: Jumlah K -> Genap
+  + 7513 observasi : 22, 50, 74, dll
+    * Hasil perhitungan akar dari total observasi -> 21 harus kita transformasi ke genap -> 20/22
+- Genap: Jumlah K -> Ganjil
+  + 1000 observasi: 11, 7, 43, dll 
+    * Hasil dari perhitungan akarnya -> 40 harus kita transformasi menjadi ganjil -> 39/41
+    
+Cara lainnya: Target kita Genap tapi observasinya Ganjil
+
+-> Obervasinya, entah kita tambahkan jumlah datanya sehingga menjadi genap entah dikurangin atau ditambahkan 
+
+## Karakteristik k-NN
+
+- tidak membuat model: langsung mengklasifikasi *saat itu juga*, tidak belajar dari data, setiap ingin mengklasifikasi harus menyediakan data train lagi.
+- tidak ada asumsi
+- dapat memprediksi multiclass -> Target variablenya > 2 (3,4,5,dst)
+- baik untuk prediktor numerik (karena mengklasifikasikan berdasarkan jarak), tidak baik untuk prediktor kategorik
+  + Biasanya data kategorik itu bentuknya karakter
+  + Karakter -> numerik 
+    * kasus ketika kategoriknya sama levelny atau sama pentingnya -> gk dianjurkan, karena rumus perhitungan jaraknya akan melakukan kuadrat
+      * a -> 1
+      * b -> 2
+      * c -> 3
+- robust: performa nya bagus -> error nya kecil
+- tidak interpretable
+
+Intuisi awal kapan si kita pake KNN: Ketika kita memiliki data yang numerik semua
+
+## Case Study 
+
+Kanker payudara adalah kanker yang paling umum menyerang wanita di dunia. Kanker payudara dapat berupa kanker jinak (**benign**) atau sudah ganas (**malignant**). Kanker ganas dapat menyebar ke organ-organ tubuh lainnya. Ingin dibuat model prediksi untuk memprediksi apakah kanker masih jinak (benign) atau sudah ganas (malignant).
+
+1. Read Data + Data understanding
+2. Data Wrangling
+3. EDA
+4. Cross Validation 
+5. Data Pre-Processing *new*
+6. Predict 
+7. Evaluation 
+
+```{r, out.width = "80%", echo = FALSE, fig.align = "center"}
+knitr::include_graphics("img/histology-examples.png")
+```
+
+### Read Data
+
+```{r}
+cancer <- read.csv("data_input/wisc_bc_data.csv")
+glimpse(cancer)
+```
+
+Keseluruhan variabel di atas berisikan data dengan tipe numerik yang menggambarkan bentukan dari sel kanger.
+
+### Data Wrangling
+
+Target: diagnosis (B = Benign, M = Malignant)
+
+Adakah variabel yang tipe datanya belum sesuai?
+
+- `diagnosis` -> factor
+
+Adakah variabel di bawah ini ada yang dapat dibuang?
+
+- `id` -> buang
+
+```{r}
+# data wrangling
+cancer_clean <- cancer %>% 
+  mutate(diagnosis = as.factor(diagnosis)) %>% 
+  select(-id)
+```
+
+```{r}
+# cek data kembali
+glimpse(cancer_clean)
+```
+
+### Eksploratory Data Analysis
+
+- Check missing value
+
+```{r}
+# Please type your answer
+anyNA(cancer_clean)
+```
+
+- Melihat 5 number summary
+
+```{r}
+# Please type your answer
+summary(cancer_clean)
+```
+
+Insihgt:
+
+- Setiap observasi predictornya, memiliki rentan yang sangat variatif
+
+- Cek class-imbalance
+
+```{r}
+# Please type your answer
+prop.table(table(cancer_clean$diagnosis))
+```
+
+Apakah hasil dari proporsinya balance atau tidak? Balance
+
+B: 0.62
+M: 0.37
+
+Additional: Walauapun kita melihat target dari data kita itu masih bisa dikategorikan balance, best practicenya kita harus membuat menjadi 0.5:0.5 (upSampling / downSampling)
+
+Format data dbl -> double -> integer/numeric
+
+### Cross Validation
+
+Train-test split dari data wbcd
+
+```{r}
+RNGkind(sample.kind = "Rounding")
+set.seed(123)
+
+# data train = 0.8 / 80%
+# index sampling
+index <- sample(x = nrow(cancer_clean), 
+                size = nrow(cancer_clean)*0.8)
+
+# splitting
+cancer_train <- cancer_clean[index, ]
+cancer_test <-  cancer_clean[-index, ]
+```
+
+```{r}
+nrow(cancer_train)
+```
+```{r}
+nrow(cancer_clean) * 0.8
+```
+
+```{r}
+# recheck class balance
+prop.table(table(cancer_train$diagnosis))
+```
+
+### Data Pre-processing *new*
+
+#### Scaling
+
+Scaling: menyamaratakan range variable prediktor 
+
+Contoh:
+
+- Variable 1: 1 - 850 -> 10 - 20
+- Variable 2: 15 -50 -> 12 - 25
+
+Scaling bisa menggunakan *min-max normalization* atau *z-score standarization*.
+
+1. Min-Max Normalization
+
+Rumus = x-min(x) / max(x)-min(x)
+
+```{r}
+normalize <- function(x){
+  return ( 
+    (x - min(x))/(max(x) - min(x)) 
+           )
+}
+```
+
+```{r}
+# contoh:
+normalize(c(1,2,3,4,5)) # memampatkan range nilai menjadi 0-1
+```
+
+- Hasil akhirnya itu sudah pasti 0 - 1
+  + Kita harus tau, berapakan nilai minimal dan nilai maksimal pada data kita
+    * Karena jarak antara nilai maksimal dari setiap observasinya itu harus sama persis
+    
+Contoh: 
+
+Untuk kasus nilai ulangan -> range 0 - 100
+
+- Nilai Mat: 20 - 40 -> nilai min:0 & nilai max:100
+- Nilai Read: 70 - 100 -> nilai min:0 & nilai max:100
+
+2. Z-score Standarization: dapat menggunakan function `scale()`
+
+Rumus = x-mean(x) / sd(x)
+
+```{r}
+# contoh:
+scale(c(1,2,3,4,5)) # data kita seberapa menyimpang (sd) dari pusatnya (mean)
+```
+
+-2 SD
+-1 SD
+Mean
+1 SD
+2 SD
+
+Note: untuk 1 data harus menggunakan 1 tipe scaling yang sama
+
+Untuk k-NN, dipisahkan antara prediktor dan label (target variabelnya).
+
+Data -> Predictor + Target
+.
+pisah
+.
+Data Baru -> Predictor
+Data baru -> Target
+
+```{r}
+library(dplyr)
+# prediktor train
+cancer_train_predictor <- cancer_train %>% 
+  select(-diagnosis)
+
+# target train
+cancer_train_target <- cancer_train %>% 
+  pull(diagnosis) # untuk menarik vector/value yang tedapat pada kolom di data frame kita
+
+
+# prediktor test
+cancer_test_predictor <- cancer_test %>% 
+  select(-diagnosis)
+
+# taget test
+cancer_test_target <- cancer_test %>% 
+  pull(diagnosis)
+```
+
+Data prediktor akan discaling menggunakan z-score standarization. Data test juga harus discaling menggunakan *parameter dari data train* (karena menganggap data test adalah **unseen data**).
+
+- fungsi `scale()` terdiri dari beberapa parameter
+  + object = object yang ingin di scaling
+  + center = nilai center (diambil dari dilai center pada data **train** yang sudah discale)
+  + scale = nilai sd (diambil dari dilai sd pada data **train** yang sudah discale)
+
+```{r}
+# scaling data train prediktor
+cancer_train_predictor_scale <- cancer_train_predictor %>% 
+  scale()
+```
+
+```{r}
+cancer_test_predictor_scale <- cancer_test_predictor %>% 
+  scale(center = attr(cancer_train_predictor_scale,"scaled:center"),
+        scale = attr(cancer_train_predictor_scale,"scaled:scale"))
+cancer_test_predictor_scale
+```
+
+### Predict
+
+Step 1: Kita akan melakukan kalkuasi berapakah nilai k paling optimum, dengan menggunakan fungsi `sqrt()` dari jumlah data kita.
+
+```{r}
+# find optimum k
+sqrt(nrow(cancer_train_predictor))
+```
+K -> 21
+
+Step 2: Kita akan langsung memprediksi dengan menggunakan fungsi `knn()` dari `library(class)`.
+
+Pada fungsi `knn()` terdapat 4 parameter yang akan kita isi, yaitu:
+
+- `train` = data train - prediktor, yang sudah discaling, tipe numerik
+- `test` = data test - prediktor, yang sudah discaling, tipe numerik
+- `cl` = data train - label (target) aktual (kategorikal)
+- `k` = jumlah k yang ditentukan dari nilai
+
+```{r}
+library(class) # package untuk fungsi `knn()`
+
+cancer_pred <- knn(train = cancer_train_predictor_scale,
+                   test = cancer_test_predictor_scale,
+                   cl = cancer_train_target,
+                   k = 21)
+```
+
+```{r}
+# cek hasil prediksi
+cancer_pred
+```
+
+### Model evaluation
+
+```{r}
+# confusion matrix
+library(caret)
+
+confusionMatrix(data = cancer_pred,
+                reference = cancer_test_target,
+                positive = "M")
+```
+
+B -> Jinak -> Kelas positif
+M -> Ganas -> kelas Negatif
+
+Kita ingin lebih fokus terhadap nilai Recall
+
+Tambahan
+
+```{r}
+nrow(cancer_train_predictor)
+```
+
+K ketika kita melihat jumlah target -> 21 -> bisa kita gunakan
+K ketika kita melihat jumlah row -> 20 / 22
+
+```{r}
+library(class) # package untuk fungsi `knn()`
+
+cancer_pred <- knn(train = cancer_train_predictor_scale, 
+                   test = cancer_test_predictor_scale, # kita sudah melakukan prediksi pada bagian ini
+                   cl = cancer_train_target, # Buat kasih tau ini adalah hasil yang bener
+                   k = 20)
+```
+
+```{r}
+# confusion matrix
+library(caret)
+
+confusionMatrix(data = cancer_pred,
+                reference = cancer_test_target,
+                positive = "M")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+

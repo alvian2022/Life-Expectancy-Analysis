@@ -1,0 +1,265 @@
+---
+title: "**Analisis Saham BukaLapak**"
+author: "Alvian Khairi"
+date: '2022-05-22'
+output: 
+  html_document:
+    theme: yeti
+    highlight: tango
+    df_print: paged
+    toc: true
+    toc_float: true
+    toc_depth: 2
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+
+# chunk options
+knitr::opts_chunk$set(
+  message = FALSE,
+  warning = FALSE,
+  fig.align = "center",
+  comment = "#>"
+)
+```
+
+```{r, out.width = "40%", echo = FALSE, fig.align = "center"}
+knitr::include_graphics("bukalapak.png")
+```
+
+
+# **1. Latar Belakang**
+
+Baiklah kali ini saya akan menganalisa saham **PT Bukalapak.com Tbk**. Data yang akan saya gunakan diperoleh pada website Yahoo Finance <https://finance.yahoo.com/quote/BUKA.JK/history?p=BUKA.JK>. 
+
+ **PT Bukalapak.com Tbk.** mengoperasikan pasar e-commerce untuk berbagai produk di Indonesia. Perusahaan ini menawarkan produk di bidang sepeda, olahraga, sepeda motor, elektronik, ponsel, komputer, hobi dan koleksi, kesehatan, perawatan kecantikan, fashion pria dan wanita, fashion anak-anak, rumah tangga, makanan, perlengkapan bayi, kamera, industri, perlengkapan kantor , tiket dan voucher, permainan, media, e-voucher, dan logam mulia, serta mobil, suku cadang, dan aksesoris. (BUKA.JK).
+ 
+# **2. Set Up**
+
+Untuk membantu proses persiapan dan analisis serta mempercantik tampilan visualisasi, berikut library yang akan digunakan
+
+ 
+```{r}
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(plotly)
+library(glue)
+library(scales)
+```
+
+# **3. Data PreProcessing**
+
+## **3.1 Read Data**
+
+Baca data dan simpan pada sebuah variable
+
+```{r}
+bukalapak <- read.csv("data_input/BUKA_JK.csv")
+head(bukalapak)
+```
+
+Data description:
+
+- Date - specifies trading date in yyyy-mm-dd format
+- High - maximum price of the day
+- Low - minimum price of the day
+- Open - opening price at the start of the day
+- Close - closing price at the end of the day
+- Adj Close - adjusted closing price for both dividends and splits
+- Volume - the number of shares that changed hands during a given day
+
+
+## **3.2 Data Cleansing**
+
+Cek struktur data frame
+
+```{r}
+glimpse(bukalapak)
+```
+
+Tipe data kolom Date terbaca sebagai char, maka perlu diperbaiki menjadi tipe data Date. Dan untuk menjawab kebutuhan bisnis penjualan saham harian, bulanan dan tahunan maka akan ditambahkan kolom baru dengan data terkait dan mengubah datanya ke tipe factor.
+
+```{r}
+bukalapak <- bukalapak %>% 
+  mutate(Date = ymd(Date),
+         Year = as.factor(year(Date)),
+         Month = as.factor(month(Date,label = T)),
+         WeekDay = as.factor(wday(Date, label = T)))
+```
+
+Setelah melakukan perbaikan, mari lihat dan koreksi kembali 
+
+```{r}
+head(bukalapak, 10)
+```
+
+
+```{r}
+glimpse(bukalapak)
+```
+
+Setelah tipe data dari masing-masing kolom telah sesuai, selanjutnya lakukan cek missing value pada data
+
+```{r}
+anyNA(bukalapak)
+
+```
+Ternyata data tidak memiliki missing value (NA), maka pemrosesan data dapat dilanjutkan.
+
+# **4. Data Processing dan Plotting**
+
+## **Pergerakan Harga Saham**  
+
+Untuk melihat pergerakan harga penjualan saham  **Bukalapak** cenderung naik atau turun, maka akan disajikan line chart dari  **Opening Price** saham tahun 2021 - 2022
+
+```{r}
+ OpenPlot <- ggplot(bukalapak, aes(x = Date, y = Open )) +
+      geom_line(col="red")+
+        labs(title = "Opening Price PT Bukalapak.com Tbk")+
+        theme_light()
+
+ggplotly(OpenPlot)
+```
+
+Dan berikut line chart untuk **Close Price** 
+
+```{r}
+ OpenPlot <- ggplot(bukalapak, aes(x = Date, y = Close )) +
+      geom_line(col="blue")+
+      labs(title = "Closing Price PT Bukalapak.com Tbk")+
+      theme_light()
+
+ggplotly(OpenPlot)
+```
+
+> Dari visualisasi line chart data **Open** dan **Close** Price diatas, terlihat bahwa harga saham **Bukalapak** cenderung terus menerus mengalami penurunan. Dan dapat dilihat bahwa pada bulan agustus harga buka dan tutup saham turun cukup tajam, dan penurunan drastis ini juga kembali terjadi pada penutupan tahun 2021 dari bulan November hingga Desember. 
+
+## **Rata-rata nilai harga saham perhari**
+
+Rata-rata nilai Opening Price berdasarkan data harian
+
+
+```{r}
+avgOpn <- bukalapak %>%
+  group_by(WeekDay) %>% 
+  summarise(Average.Perday = mean(Open)) %>% 
+  ungroup()
+
+avgOpn
+
+```
+
+Berikut merupakan visualisasi rata-rata Opening Price pada masing-masing hari
+
+```{r}
+avgOpn <- avgOpn %>% 
+  mutate(label = glue("Day: {WeekDay}
+                      Average Opening Price: {comma(Average.Perday)}"))
+
+opnPlot <- ggplot(avgOpn, aes(x = WeekDay, y = Average.Perday, text = label)) +
+  geom_col(aes(fill = Average.Perday)) +
+  labs(title = "Average Opening Price",
+       subtitle = "contoh",
+       x = "Day",
+       y = NULL) +
+  scale_fill_gradient(low = "orange", high= "red") +
+  theme_minimal() +
+  theme(legend.position = "none") 
+
+ggplotly(opnPlot, tooltip = "text")
+```
+
+
+Rata-rata nilai Closing Price berdasarkan data harian
+
+```{r}
+avgCls <- bukalapak %>%
+  group_by(WeekDay) %>% 
+  summarise(Average.Perday = mean(Close)) %>% 
+  ungroup()
+
+avgCls
+
+```
+
+
+Berikut merupakan visualisasi rata-rata Closing Price pada masing-masing hari
+
+```{r}
+avgCls <- avgCls %>% 
+  mutate(label = glue("Day: {WeekDay}
+                      Average Closing Price: {comma(Average.Perday)}"))
+
+clsPlot <- ggplot(avgCls, aes(x = WeekDay, y = Average.Perday, text = label)) +
+  geom_col(aes(fill = Average.Perday)) +
+  labs(title = "Average Closing Price",
+       subtitle = "contoh",
+       x = "Day",
+       y = NULL) +
+  scale_fill_gradient(low = "orange", high= "red") +
+  theme_minimal() +
+  theme(legend.position = "none") 
+
+ggplotly(clsPlot, tooltip = "text")
+```
+>Berdasarkan dari visualisasi diatas hari senin menempati posisi peratama dengan rata-rata Opening price dan Closing price terbesar, namun secara umum rata-rata opening price dan closing price perharinya tidak memiliki perbedaan yang signifikan.
+
+
+## **Persebaran Volume **
+
+```{r}
+boxplot <- ggplot(data = bukalapak, mapping = aes(x = Month, y = Volume)) +
+  geom_boxplot(outlier.shape = NA, aes(fill=Month)) + 
+  labs(title = "Volume Distribution")+
+  geom_jitter()+
+  scale_y_continuous(labels = scales::comma)
+
+ggplotly(boxplot)
+```
+
+> Dari visualisasi boxplot diatas dapat dilihat bahwa pada bulan agustus memiliki niali outlier yang cukup jauh dari nilai persebarannya, artinya pada bulan agustus terjadi pemindahan/transaksi secara besar-besaran. Dan dapat dilihat juga bahwa setiap bulannya selalu ada nilai outlier.
+
+
+
+## **Melihat Hubungan dan Pengaruh Opening Price terhadap High Price dan Low Price**
+
+
+```{r}
+OH <- ggplot(bukalapak, aes(x = Open, y = High)) +
+       geom_point(shape=18, color="blue")+
+       geom_smooth(method=lm, linetype="dashed",color="darkred", fill="blue")+
+        labs(title = "Scotter Plot Relationship between Opening and High Price")+
+        theme_light()
+        
+
+        
+ggplotly(OH)
+```
+
+
+```{r}
+OL <- ggplot(bukalapak, aes(x = Open, y = Low)) +
+       geom_point(shape=18, color="blue")+
+       geom_smooth(method=lm, linetype="dashed",color="darkred", fill="blue")+
+        labs(title = "Scotter Plot Relationship between Opening and Low Price")+
+        theme_light()
+        
+
+        
+ggplotly(OL)
+```
+
+
+> Berdasarkan visualisasi diatas, maka dapat dikatakan bahwa Open Price berhubungan kuat dengan High Price dan Low Price. Dapat dikatakan bahwa semakin besar Opening Price maka akan semakin meningkatkan High Price dan Low Price.
+
+
+
+
+
+
+
+
+
+

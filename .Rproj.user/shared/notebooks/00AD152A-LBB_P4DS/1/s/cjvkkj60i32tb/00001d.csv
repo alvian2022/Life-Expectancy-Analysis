@@ -1,0 +1,7 @@
+"0","ggcorr(life_expectancy_clean, label = T, size =3)
+"
+"2","Warning in ggcorr(life_expectancy_clean, label = T, size = 3) :"
+"2","
+ "
+"2"," data in column(s) 'Country', 'Status' are not numeric and were ignored
+"

@@ -1,0 +1,2 @@
+"0","lf1 <- aggregate(Life.expectancy~Country, life_expectancy_clean, var)"
+"0","head(lf1[order(lf1$Life.expectancy, decreasing = T),])"
